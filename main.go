@@ -44,13 +44,21 @@ func getLastTweetId(db *sql.DB) int64 {
 	return tweetId
 }
 
-func insertRec(db *sql.DB) bool {
-	tx, err := db.Begin()
-	checkErr(err, "db.Begin() failed!")
-	defer db.Close()
+func insertRec(db *sql.DB, tweetLog map[string]string) bool {
 
-	stmt, err := tx.Prepare("insert into transitdb(timestamp, tweetid, transitline, yod) values()")
-	defer stmt.Close()
+	// lastTweet := strconv.FormatInt(getLastTweetId(db), 10)
+
+	for i := 0; i < len(tweetLog); i++ {
+		for k, v := range tweetLog {
+			db.Exec("INSERT INTO transitdb (date, tweetid) VALUES (?, ?);", v, k)
+			//checkErr(err, "db.Exec() failed")
+		}
+	}
+	/*
+		for i := 0 i < len(tweetLog); i++ {
+		    fmt.Println(i)
+		}
+	*/
 	return true
 }
 
@@ -64,10 +72,10 @@ type ApiKeys struct {
 func main() {
 
 	twtapikeys := ApiKeys{
-		os.Getenv("CONSUMERKEY"),
-		os.Getenv("CONSUMERSECRET"),
-		os.Getenv("ACCESSTOKEN"),
-		os.Getenv("ACCESSTOKENSECRET"),
+		os.Getenv("TWITTER_CONSUMERKEY"),
+		os.Getenv("TWITTER_CONSUMERSECRET"),
+		os.Getenv("TWITTER_ACCESSTOKEN"),
+		os.Getenv("TWITTER_ACCESSTOKENSECRET"),
 	}
 
 	anaconda.SetConsumerKey(twtapikeys.ConsumerKey)
@@ -83,6 +91,7 @@ func main() {
 	tweets, err := api.GetUserTimeline(v)
 	checkErr(err, "api.GetUserTimeline() failed check connection or credentials")
 
+	// Open the sqlite db
 	db, err := sql.Open("sqlite3", "./db/transit.db")
 	checkErr(err, "sql.Open() failed!")
 	defer db.Close()
@@ -94,5 +103,6 @@ func main() {
 		tweetLog[url] = tweet.CreatedAt
 	}
 
+	insertRec(db, tweetLog)
 	fmt.Println(getLastTweetId(db))
 }
