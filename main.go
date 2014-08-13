@@ -44,21 +44,18 @@ func getLastTweetId(db *sql.DB) int64 {
 	return tweetId
 }
 
-func insertRec(db *sql.DB, tweetLog map[string]string) bool {
+func insertRec(db *sql.DB, tweetLog map[string][]string) bool {
 
-	// lastTweet := strconv.FormatInt(getLastTweetId(db), 10)
+	lastTweet := strconv.FormatInt(getLastTweetId(db), 10)
 
-	for i := 0; i < len(tweetLog); i++ {
-		for k, v := range tweetLog {
-			db.Exec("INSERT INTO transitdb (date, tweetid) VALUES (?, ?);", v, k)
-			//checkErr(err, "db.Exec() failed")
+	for k, v := range tweetLog {
+		if k > lastTweet {
+			fmt.Printf("Inserting into db : %s %s %s %s %s\n", k, v[0], v[1], v[2], v[3])
+			_, err := db.Exec("INSERT INTO transitdb (tweetId, timestamp, transitLine, url, yod) VALUES (?, ?, ?, ?, ?);", k, v[0], v[1], v[2], v[3])
+			checkErr(err, "db.Exec() fatal!")
 		}
 	}
-	/*
-		for i := 0 i < len(tweetLog); i++ {
-		    fmt.Println(i)
-		}
-	*/
+	fmt.Println("No new twitter feeds :(")
 	return true
 }
 
@@ -96,13 +93,18 @@ func main() {
 	checkErr(err, "sql.Open() failed!")
 	defer db.Close()
 
-	tweetLog := make(map[string]string) // Create a map to store our returned results
+	tweetLog := make(map[string][]string) // Create a map to store our returned results
 	for _, tweet := range tweets {
 		url := getStatusURL(username, tweet.Id)
-		// fmt.Println(tweet.CreatedAt, url)
-		tweetLog[url] = tweet.CreatedAt
+		tweetId := strconv.FormatInt(tweet.Id, 10)
+		tweetLog[tweetId] = []string{
+			tweet.CreatedAt,
+			username,
+			url,
+			"1",
+		}
 	}
 
 	insertRec(db, tweetLog)
-	fmt.Println(getLastTweetId(db))
+	// fmt.Println(getLastTweetId(db))
 }

@@ -1,11 +1,8 @@
 create TABLE transitdb 
 (
-    DATETIME        timestamp NOT NULL, 
-    BIGINT          tweetID PRIMARY KEY NOT NULL,
-    TEXT            transitLine NOT NULL,
-    INT             yod NOT NULL
+    tweetId     BIGINT PRIMARY KEY NOT NULL,
+    timestamp   DATETIME NOT NULL, 
+    transitLine NOT NULL,
+    url         NOT NULL, 
+    yod         INT NOT NULL
 );
-    
-    
- 
-
