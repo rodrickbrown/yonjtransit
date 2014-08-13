@@ -1,0 +1,6 @@
+---
+- users::
+    - user: NJTRANSIT_ME
+    - user: NJTRANSIT_XX
+- dbpath:
+    db/transit.db
