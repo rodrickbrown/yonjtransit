@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/ChimeraCoder/anaconda"
 	_ "github.com/mattn/go-sqlite3"
@@ -32,8 +31,7 @@ func writeLog() {
 }
 
 func yO(apikey string) bool {
-	b := strings.NewReader("api_token={{" + apikey + "}}")
-	_, err := http.Post("http://api.justyo.co/yoall/", "api_token={{"+apikey+"}}", b)
+	_, err := http.PostForm("http://api.justyo.co/yoall/", url.Values{"api_token": {apikey}, "link": {"https://twitter.com/NJTRANSIT_ME/status/499261686360977408"}})
 	checkErr(err, "http.Post() fatal")
 	return true
 }
@@ -78,6 +76,7 @@ func insertRec(db *sql.DB, tweetLog map[string][]string) bool {
 			fmt.Printf("Inserted into db : %s|%s|%s|%s|%s\n", k, v[0], v[1], v[2], v[3])
 			_, err := db.Exec("INSERT INTO transitdb (tweetId, timestamp, transitLine, url, yod) VALUES (?, ?, ?, ?, ?);", k, v[0], v[1], v[2], v[3])
 			checkErr(err, "db.Exec() fatal!")
+			yoFlag = true
 		}
 	} else {
 		for k, v := range tweetLog {
