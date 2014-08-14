@@ -44,7 +44,7 @@ func getLastTweetId(db *sql.DB) int64 {
 	stmt := "select max(tweetID) from transitdb;"
 	rows, err := db.Query(stmt)
 	checkErr(err, "db.Query() failed: "+stmt)
-	defer db.Close()
+	// defer db.Close()
 
 	for rows.Next() {
 		rows.Scan(&tweetId)
@@ -53,25 +53,43 @@ func getLastTweetId(db *sql.DB) int64 {
 	return tweetId
 }
 
+func rowCount(db *sql.DB) int64 {
+	var count int64
+
+	stmt := "select count(*) from transitdb;"
+	rows, err := db.Query(stmt)
+	checkErr(err, "db.Query() failed: "+stmt)
+	// defer db.Close()
+
+	for rows.Next() {
+		rows.Scan(&count)
+	}
+	return count
+}
+
 func insertRec(db *sql.DB, tweetLog map[string][]string) bool {
 
 	lastTweet := strconv.FormatInt(getLastTweetId(db), 10)
 	yoFlag := false
 
-	for k, v := range tweetLog {
-		if k > lastTweet {
-			fmt.Printf("Inserting into db : %s|%s|%s|%s|%s\n", k, v[0], v[1], v[2], v[3])
+	if rowCount(db) == 0 {
+		fmt.Println("loading tweets into database...")
+		for k, v := range tweetLog {
+			fmt.Printf("Inserted into db : %s|%s|%s|%s|%s\n", k, v[0], v[1], v[2], v[3])
 			_, err := db.Exec("INSERT INTO transitdb (tweetId, timestamp, transitLine, url, yod) VALUES (?, ?, ?, ?, ?);", k, v[0], v[1], v[2], v[3])
 			checkErr(err, "db.Exec() fatal!")
-			yoFlag = true
+		}
+	} else {
+		for k, v := range tweetLog {
+			if k > lastTweet {
+				fmt.Printf("Inserted into db : %s|%s|%s|%s|%s\n", k, v[0], v[1], v[2], v[3])
+				_, err := db.Exec("INSERT INTO transitdb (tweetId, timestamp, transitLine, url, yod) VALUES (?, ?, ?, ?, ?);", k, v[0], v[1], v[2], v[3])
+				checkErr(err, "db.Exec() fatal!")
+				yoFlag = true
+			}
 		}
 	}
-
-	if yoFlag {
-		return true
-	} else {
-		return false
-	}
+	return yoFlag
 }
 
 type ApiKeys struct {
@@ -125,7 +143,7 @@ func main() {
 	}
 
 	if insertRec(db, tweetLog) {
+		fmt.Println("sending yo......")
 		yO(apikeys.Yo_Apikey)
 	}
-	// fmt.Println(getLastTweetId(db))
 }
