@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/ChimeraCoder/anaconda"
 	_ "github.com/mattn/go-sqlite3"
@@ -30,10 +32,22 @@ func getStatusURL(tweetName string, tweetId int64) string {
 func writeLog() {
 }
 
-func yO(apikey string) bool {
-	_, err := http.PostForm("http://api.justyo.co/yoall/", url.Values{"api_token": {apikey}, "link": {"https://twitter.com/NJTRANSIT_ME/status/499261686360977408"}})
-	checkErr(err, "http.Post() fatal")
-	return true
+func yO(apikey string, urllink string) bool {
+	url := "http://api.justyo.co/yoall/"
+	postdata := `{"api_token":"` + apikey + `","` + `link":"` + urllink + `"}`
+	var jsonStr = []byte(postdata)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	req.Header.Set("X-Custom-Header", "YONJTransit")
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	checkErr(err, "client.do(req) fatal error!")
+	defer resp.Body.Close()
+
+	if strings.Contains(resp.Status, "200") || strings.Contains(resp.Status, "201") {
+		return true
+	}
+	return false
 }
 
 func getLastTweetId(db *sql.DB) int64 {
@@ -96,8 +110,8 @@ type ApiKeys struct {
 	ConsumerSecret    string
 	AccessToken       string
 	AccessTokenSecret string
-	Yo_Apikey         string
 	Yo_ApiUser        string
+	Yo_ApiKey         string
 }
 
 func main() {
@@ -116,6 +130,7 @@ func main() {
 	api := anaconda.NewTwitterApi(apikeys.AccessToken, apikeys.AccessTokenSecret)
 
 	username := "NJTRANSIT_ME"
+	var urllink string
 
 	v := url.Values{}
 	v.Set("count", "20")
@@ -131,18 +146,20 @@ func main() {
 
 	tweetLog := make(map[string][]string) // Create a map to store our returned results
 	for _, tweet := range tweets {
-		url := getStatusURL(username, tweet.Id)
+		urllink = getStatusURL(username, tweet.Id)
 		tweetId := strconv.FormatInt(tweet.Id, 10)
 		tweetLog[tweetId] = []string{
 			tweet.CreatedAt,
 			username,
-			url,
+			urllink,
 			"1",
 		}
 	}
 
 	if insertRec(db, tweetLog) {
 		fmt.Println("sending yo......")
-		yO(apikeys.Yo_Apikey)
+		if yO(apikeys.Yo_ApiKey, urllink) {
+			fmt.Println("Yo sent to all with url; ", urllink)
+		}
 	}
 }
