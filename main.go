@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/ChimeraCoder/anaconda"
 	_ "github.com/mattn/go-sqlite3"
@@ -29,6 +31,13 @@ func getStatusURL(tweetName string, tweetId int64) string {
 func writeLog() {
 }
 
+func yO(apikey string) bool {
+	b := strings.NewReader("api_token={{" + apikey + "}}")
+	_, err := http.Post("http://api.justyo.co/yoall/", "api_token={{"+apikey+"}}", b)
+	checkErr(err, "http.Post() fatal")
+	return true
+}
+
 func getLastTweetId(db *sql.DB) int64 {
 	var tweetId int64
 
@@ -47,16 +56,22 @@ func getLastTweetId(db *sql.DB) int64 {
 func insertRec(db *sql.DB, tweetLog map[string][]string) bool {
 
 	lastTweet := strconv.FormatInt(getLastTweetId(db), 10)
+	yoFlag := false
 
 	for k, v := range tweetLog {
 		if k > lastTweet {
-			fmt.Printf("Inserting into db : %s %s %s %s %s\n", k, v[0], v[1], v[2], v[3])
+			fmt.Printf("Inserting into db : %s|%s|%s|%s|%s\n", k, v[0], v[1], v[2], v[3])
 			_, err := db.Exec("INSERT INTO transitdb (tweetId, timestamp, transitLine, url, yod) VALUES (?, ?, ?, ?, ?);", k, v[0], v[1], v[2], v[3])
 			checkErr(err, "db.Exec() fatal!")
+			yoFlag = true
 		}
 	}
-	fmt.Println("No new twitter feeds :(")
-	return true
+
+	if yoFlag {
+		return true
+	} else {
+		return false
+	}
 }
 
 type ApiKeys struct {
@@ -64,20 +79,24 @@ type ApiKeys struct {
 	ConsumerSecret    string
 	AccessToken       string
 	AccessTokenSecret string
+	Yo_Apikey         string
+	Yo_ApiUser        string
 }
 
 func main() {
 
-	twtapikeys := ApiKeys{
+	apikeys := ApiKeys{
 		os.Getenv("TWITTER_CONSUMERKEY"),
 		os.Getenv("TWITTER_CONSUMERSECRET"),
 		os.Getenv("TWITTER_ACCESSTOKEN"),
 		os.Getenv("TWITTER_ACCESSTOKENSECRET"),
+		os.Getenv("YO_APIUSER"),
+		os.Getenv("YO_APIKEY"),
 	}
 
-	anaconda.SetConsumerKey(twtapikeys.ConsumerKey)
-	anaconda.SetConsumerSecret(twtapikeys.ConsumerSecret)
-	api := anaconda.NewTwitterApi(twtapikeys.AccessToken, twtapikeys.AccessTokenSecret)
+	anaconda.SetConsumerKey(apikeys.ConsumerKey)
+	anaconda.SetConsumerSecret(apikeys.ConsumerSecret)
+	api := anaconda.NewTwitterApi(apikeys.AccessToken, apikeys.AccessTokenSecret)
 
 	username := "NJTRANSIT_ME"
 
@@ -105,6 +124,8 @@ func main() {
 		}
 	}
 
-	insertRec(db, tweetLog)
+	if insertRec(db, tweetLog) {
+		yO(apikeys.Yo_Apikey)
+	}
 	// fmt.Println(getLastTweetId(db))
 }
